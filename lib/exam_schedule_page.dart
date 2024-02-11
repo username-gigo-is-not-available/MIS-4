@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+
+import 'notifications.dart';
+
 
 class ExamSchedulePage extends StatefulWidget {
   const ExamSchedulePage({Key? key}) : super(key: key);
@@ -16,12 +21,45 @@ class _ExamSchedulePageState extends State<ExamSchedulePage> {
   final Map<DateTime, List<Map<String, dynamic>>> _events = {};
   late List<Map<String, dynamic>> _selectedEvents;
 
+  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
     _selectedTime = TimeOfDay.now();
     _selectedEvents = _events[DateTime.now()] ?? [];
+    _initializeNotifications();
+  }
+
+  void _initializeNotifications() async {
+    final initializationSettingsAndroid = AndroidInitializationSettings('app_icon');
+    final initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showNotification(String subject, DateTime dateTime) async {
+    final androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'your channel id',
+      'your channel name',
+      importance: Importance.max,
+      priority: Priority.high,
+      ticker: 'ticker',
+    );
+    final platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+    );
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      0,
+      'Exam Reminder',
+      '$subject at ${DateFormat('HH:mm').format(dateTime)}',
+      tz.TZDateTime.from(dateTime, tz.local),
+      platformChannelSpecifics,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
   }
 
   @override
@@ -61,6 +99,20 @@ class _ExamSchedulePageState extends State<ExamSchedulePage> {
               },
             ),
           ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => NotificationsScreen(
+                    flutterLocalNotificationsPlugin: flutterLocalNotificationsPlugin,
+                  ),
+                ),
+              );
+            },
+            child: Text('Notify'),
+          ),
+
         ],
       ),
       floatingActionButton: FloatingActionButton(
